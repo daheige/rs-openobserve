@@ -50,7 +50,7 @@ kubectl port-forward -n openobserve svc/openobserve 5080:5080
 
 # 根据实际情况部署ingress以及域名解析即可，这里省略
 ```
-- 本地部署成功后，forward转发访问地址：http://localhost:5080。
+- 本地部署成功后，forward转发访问地址：http://localhost:5080
   ![openobserve-web.png](openobserve-web.png)
 - 如果使用server-nodeport模式，访问地址：http://localhost:30080
 
