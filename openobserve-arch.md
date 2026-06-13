@@ -786,7 +786,7 @@ spec:
           storage: 10Gi
 ```
 
-下面的版本，是我经过了调整后的版本，支持500GB，同时30天自动清理数据。
+由于网络和权限问题，下面的版本，是我经过了调整后的版本，支持500GB，同时30天自动清理数据。修改后的deployment.yaml如下：
 ```yaml
 apiVersion: v1
 kind: Service
@@ -829,7 +829,8 @@ spec:
         runAsNonRoot: true
       containers:
         - name: openobserve
-          image: o2cr.ai/openobserve/openobserve:v0.90.3
+          # 这里的镜像用开源版本的，例如：docker镜像为openobserve/openobserve:v0.90.3
+          image: public.ecr.aws/zinclabs/openobserve:v0.90.3
           env:
             - name: ZO_ROOT_USER_EMAIL
               value: root@example.com
@@ -865,16 +866,70 @@ spec:
     spec:
       accessModes:
         - ReadWriteOnce
+      #storageClassName: gp3  # EKS 推荐 gp3，这里注释会自动创建pvc
       resources:
         requests:
           storage: 500Gi
 ```
+备注：
+- 部署之前，需要先通过 kubectl create ns openobserve 创建好命名空间后，再执行kubectl apply -f deployment.yaml部署。
 - 如果在测试或线上环境，建议resources使用1核2g,最大8核16g，避免运行过程中发生异常。同时，storge建议500Gi，然后开启30天自动清理。
 - 对于密钥信息，建议放在k8s secret管理，具体参考官方k8s手册：https://kubernetes.io/zh-cn/docs/tasks/configmap-secret/managing-secret-using-kubectl/
 - 如果需要使用企业版，需要经过openobserve官方授权许可证才可以使用。
 - resources这里可以使用storageClass，例如：aws的gp3 sc类型的pvc。
 - 云版本每天50GB免费，镜像为: public.ecr.aws/zinclabs/openobserve:latest
-- 社区版的镜像为: o2cr.ai/openobserve/openobserve:v0.90.3
+- 社区版的镜像为: o2cr.ai/openobserve/openobserve:v0.90.3 需要权限，建议使用docker镜像openobserve/openobserve:v0.90.3 或者官方 AWS Public ECR 镜像
+- 官方 AWS Public ECR 镜像 docker pull public.ecr.aws/zinclabs/openobserve:v0.90.3
+- docker镜像：docker pull openobserve/openobserve:v0.90.3
+- 如果pvc使用aws sc配置，那volumeClaimTemplates配置如下，这里如果gp3模版，没有创建，需要提前创建好gp3。
+```yaml
+volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: gp3  # EKS 推荐 gp3，或你的 nfs-client
+      resources:
+        requests:
+          storage: 10Gi
+```
+对应的sc创建gp3-sc.yaml如下：
+```yaml
+# gp3-sc.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"  # 设为默认
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"           # 启用加密
+  iops: "3000"                # gp3 默认 IOPS
+  throughput: "125"           # MiB/s，gp3 支持 125-1000
+  fsType: ext4
+volumeBindingMode: WaitForFirstConsumer  # 延迟绑定，优化调度
+allowVolumeExpansion: true      # 支持扩容
+reclaimPolicy: Delete           # 删除 PVC 时删除 PV
+```
+
+部署步骤如下
+```shell
+# 创建命名空间
+kubectl create ns openobserve
+
+# 应用修改后的 YAML
+kubectl apply -f deployment.yaml
+
+# 验证openobserve运行状态
+kubectl get pvc -n openobserve
+kubectl get pod -n openobserve
+
+# 根据实际情况部署ingress以及域名解析即可，这里省略
+```
+
 #### 生产适配版（1000GB/30天场景，可根据实际情况调整）
 
 以下配置在官方基础上增加了 **数据保留策略**、**资源限制**、**健康检查**、**对象存储** 等生产必需配置：
