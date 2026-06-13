@@ -704,12 +704,13 @@ networks:
 
 ### 官方 Kubernetes StatefulSet 部署配置（推荐单节点）
 
-> 参考官方文档：https://openobserve.ai/downloads/ citeweb_search:13#0
+> 参考官方文档：https://openobserve.ai/downloads/
 
 OpenObserve 官方提供基于 **StatefulSet** 的单节点部署方式，适用于本地开发和测试环境。以下配置已针对 **1000GB/30天** 场景进行资源调整。
 
 #### 基础版
-官方原始配置如下：https://openobserve.ai/downloads/
+- 官方原始配置如下：https://openobserve.ai/downloads/
+- deploy部署：https://github.com/openobserve/openobserve/blob/main/deploy/k8s/statefulset.yaml
 ```yaml
 apiVersion: v1
 kind: Service
