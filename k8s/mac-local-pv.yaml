@@ -1,8 +1,8 @@
-# local-pv.yaml
+# mac-local-pv.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: data-openobserve-0
+  name: pv-openobserve-0
 spec:
   capacity:
     storage: 10Gi

@@ -545,7 +545,7 @@ T+10s   通知 Querier 缓存新文件（可选）
 | 磁盘 | 300 GB | - | SSD/NVMe，用于 WAL 和本地 Parquet 缓冲 |
 | 网络 | 1 Gbps | - | 保证 S3/MinIO 传输带宽 |
 
-### Docker Compose 部署配置
+### Docker Compose 部署配置（参考）
 
 ```yaml
 version: '3.8'
@@ -799,9 +799,10 @@ spec:
   selector:
     app: openobserve
   ports:
-  - name: http
-    port: 5080
-    targetPort: 5080
+    - name: http
+      port: 5080
+      targetPort: 5080
+
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -830,47 +831,69 @@ spec:
         runAsNonRoot: true
       containers:
         - name: openobserve
-          # 这里的镜像用开源版本的，例如：docker镜像为openobserve/openobserve:v0.90.3
           image: public.ecr.aws/zinclabs/openobserve:v0.90.3
           env:
             - name: ZO_ROOT_USER_EMAIL
-              value: root@example.com
+              valueFrom:
+                secretKeyRef:
+                  name: openobserve-auth
+                  key: email
             - name: ZO_ROOT_USER_PASSWORD
-              value: Complexpass#123
+              valueFrom:
+                secretKeyRef:
+                  name: openobserve-auth
+                  key: password
             - name: ZO_DATA_DIR
               value: /data
-            # === 数据保留策略（关键：30天自动清理） ===
-            - name: ZO_LOGS_RETENTION
-              value: "30d"
-            - name: ZO_METRICS_RETENTION
-              value: "30d"
-            - name: ZO_TRACES_RETENTION
-              value: "30d"
-          imagePullPolicy: Always
-          # 这里建议使用1核2g,最大8核16g
+            - name: ZO_LOCAL_MODE
+              value: "true"
+            - name: ZO_HTTP_ADDR
+              value: "0.0.0.0"
+          imagePullPolicy: IfNotPresent
           resources:
             limits:
-              cpu: "8"
-              memory: "16Gi"
+              cpu: "4"
+              memory: 8Gi
             requests:
-              cpu: "2"
-              memory: "4Gi"
+              cpu: "1"
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5080
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 20
+            failureThreshold: 3
+          # 优雅关闭
+          lifecycle:
+            preStop:
+              exec:
+                command: [ "/bin/sh", "-c", "sleep 10" ]
           ports:
             - containerPort: 5080
               name: http
           volumeMounts:
-          - name: data
-            mountPath: /data
+            - name: data
+              mountPath: /data
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      #storageClassName: gp3  # EKS 推荐 gp3，这里注释会自动创建pvc
-      resources:
-        requests:
-          storage: 500Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        #        storageClassName: gp3   # 对于云来说建议配置实际的sc，例如:aws对应的gp3模版
+        resources:
+          requests:
+            storage: 500Gi
 ```
 备注：
 - 部署之前，需要先通过 kubectl create ns openobserve 创建好命名空间后，再执行kubectl apply -f deployment.yaml部署。
@@ -897,7 +920,7 @@ volumeClaimTemplates:
 ```
 对应的sc创建gp3-sc.yaml如下：
 ```yaml
-# gp3-sc.yaml
+# aws-gp3-sc.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -1410,7 +1433,7 @@ spec:
 - [OpenObserve GitHub 仓库](https://github.com/openobserve/openobserve)
 - [OpenObserve HA 模式部署实践](https://www.51cto.com/article/795585.html)
 - [OpenObserve 环境变量完整列表](https://openobserve.ai/docs/environment-variables/)
-- [OpenObserve Docker 部署指南](https://openobserve.ai/docs/installation/docker/)
-- [OpenObserve Kubernetes 部署指南](https://openobserve.ai/docs/installation/kubernetes/)
+- [OpenObserve Docker 部署指南](https://openobserve.ai/downloads/)
+- [OpenObserve Kubernetes 部署指南](https://openobserve.ai/downloads/)
 
 ---

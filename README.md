@@ -8,7 +8,7 @@ https://openobserve.ai/downloads/
 推荐k8s或docker部署
 ![openobserve.png](openobserve.png)
 
-# 测试环境部署
+# 线上或测试环境部署
 ```shell
 # 创建命名空间
 kubectl create ns openobserve
@@ -23,8 +23,9 @@ kubectl create secret generic openobserve-auth \
     --from-literal=email=${ZO_ROOT_USER_EMAIL} \
     --from-literal=password=${ZO_ROOT_USER_PASSWORD}
 
+# 根据实际情况创建pv和pvc
 # 如果使用aws云，需要创建gp3 sc
-#kubectl apply -f k8s/gp3-sc.yaml
+#kubectl apply -f k8s/aws-gp3-sc.yaml
 
 # 云服务器部署
 kubectl apply -f k8s/deployment.yaml
@@ -94,6 +95,85 @@ kubectl get pvc,pod -n openobserve
 
 # 4. 查看日志
 kubectl logs -n openobserve openobserve-0 --tail=50
+```
+
+# 非mac系统本地部署（以ubuntu为例子）
+```shell
+# 0.创建命名空间
+kubectl create ns openobserve
+
+# 创建secret
+export ZO_ROOT_USER_EMAIL="root@example.com"
+export ZO_ROOT_USER_PASSWORD="Complexpass#123"
+
+# 这一步一般会提前创建好，或者使用nacos管理配置
+kubectl create secret generic openobserve-auth \
+    --namespace openobserve \
+    --from-literal=email=${ZO_ROOT_USER_EMAIL} \
+    --from-literal=password=${ZO_ROOT_USER_PASSWORD}
+
+# 根据实际情况创建pv和pvc
+# 1.手动创建 PV
+kubectl apply -f k8s/ubuntu-pv.yaml
+
+# 2.创建 PVC（会自动绑定到上面的 PV）
+kubectl apply -f k8s/pvc.yaml
+
+# 3.验证绑定
+kubectl get pv,pvc -n openobserve
+
+# 4.部署
+# 去掉 securityContext 优先解决权限问题
+kubectl apply -f k8s/deployment-local.yaml
+
+# 查看状态
+kubectl get pvc,pod -n openobserve
+
+# 查看日志
+kubectl logs -n openobserve openobserve-0
+
+# 通过 port-forward 本地转发5080端口
+kubectl port-forward -n openobserve svc/openobserve 5080:5080
+# 访问 http://localhost:5080
+```
+
+# mac k8s 本地创建pvc和部署openobserve
+```shell
+# 0.创建命名空间
+kubectl create ns openobserve
+
+# 创建secret
+export ZO_ROOT_USER_EMAIL="root@example.com"
+export ZO_ROOT_USER_PASSWORD="Complexpass#123"
+
+# 这一步一般会提前创建好，或者使用nacos管理配置
+kubectl create secret generic openobserve-auth \
+    --namespace openobserve \
+    --from-literal=email=${ZO_ROOT_USER_EMAIL} \
+    --from-literal=password=${ZO_ROOT_USER_PASSWORD}
+
+# 1.手动创建 PV
+kubectl apply -f k8s/mac-local-pv.yaml
+
+# 2.创建 PVC（会自动绑定到上面的 PV）
+kubectl apply -f k8s/pvc.yaml
+
+# 3.验证绑定
+kubectl get pv,pvc -n openobserve
+
+# 4.部署
+# Docker Desktop 去掉 securityContext 优先解决权限问题
+kubectl apply -f k8s/deployment-local.yaml
+
+# 查看状态
+kubectl get pvc,pod -n openobserve
+
+# 查看日志
+kubectl logs -n openobserve openobserve-0
+
+# 本地转发5080端口，注意Docker Desktop	不会自动分配，需要 port-forward
+kubectl port-forward -n openobserve svc/openobserve 5080:5080
+# 访问 http://localhost:5080
 ```
 
 # 查看k8s secret

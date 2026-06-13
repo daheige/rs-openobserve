@@ -1,0 +1,22 @@
+# ubuntu-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-openobserve-0
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hostpath
+  hostPath:
+    path: /opt/openobserve/data        # Linux 路径
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - ubuntu-node-1        # 替换为你的实际节点名

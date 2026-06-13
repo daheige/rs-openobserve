@@ -93,14 +93,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-  # 本地部署不需要下面的配置，使用deployment-local.yaml
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes:
           - ReadWriteOnce
-#        storageClassName: hostpath  # 使用 gp3，注释会自动选择
+#        storageClassName: gp3   # 对于云来说建议配置实际的sc，例如:aws对应的gp3模版
         resources:
           requests:
             storage: 10Gi
