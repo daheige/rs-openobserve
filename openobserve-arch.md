@@ -927,7 +927,38 @@ kubectl apply -f deployment.yaml
 kubectl get pvc -n openobserve
 kubectl get pod -n openobserve
 
+# 本地转发5080端口
+kubectl port-forward -n openobserve svc/openobserve 5080:5080
+# 访问 http://localhost:5080
+
 # 根据实际情况部署ingress以及域名解析即可，这里省略
+```
+下面是aws ingress参考：
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openobserve
+  namespace: openobserve
+  annotations:
+    # AWS LoadBalancer
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    #alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    #alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789:certificate/xxx
+spec:
+  rules:
+    - host: openobserve.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: openobserve
+                port:
+                  number: 5080
 ```
 
 #### 生产适配版（1000GB/30天场景，可根据实际情况调整）
