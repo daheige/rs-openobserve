@@ -1,4 +1,4 @@
-# 01-pv.yaml
+# local-pv.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -8,7 +8,7 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: hostpath  # 必须和 PVC 的 storageClassName 一致
+  storageClassName: hostpath
   hostPath:
     path: /opt/openobserve/data
     type: DirectoryOrCreate

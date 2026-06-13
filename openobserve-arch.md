@@ -968,41 +968,20 @@ spec:
 
 ```yaml
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: openobserve
----
-# Secret: 管理员密码（建议生产环境使用更复杂的密码）
-apiVersion: v1
-kind: Secret
-metadata:
-  name: openobserve-admin
-  namespace: openobserve
-type: Opaque
-stringData:
-  password: "Complexpass#123"
----
-# Service: Headless Service for StatefulSet
-apiVersion: v1
 kind: Service
 metadata:
   name: openobserve
   namespace: openobserve
-  labels:
-    app: openobserve
 spec:
   clusterIP: None
   selector:
     app: openobserve
   ports:
-  - name: http
-    port: 5080
-    targetPort: 5080
-  - name: grpc
-    port: 5081
-    targetPort: 5081
+    - name: http
+      port: 5080
+      targetPort: 5080
+
 ---
-# StatefulSet: 单节点 OpenObserve
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -1010,7 +989,6 @@ metadata:
   namespace: openobserve
   labels:
     name: openobserve
-    app: openobserve
 spec:
   serviceName: openobserve
   replicas: 1
@@ -1029,139 +1007,78 @@ spec:
         runAsUser: 10000
         runAsGroup: 3000
         runAsNonRoot: true
-
       containers:
         - name: openobserve
           image: public.ecr.aws/zinclabs/openobserve:v0.90.3
-          imagePullPolicy: IfNotPresent
-
-          # === 资源限制（适配 1000GB/30天） ===
-          resources:
-            limits:
-              cpu: "8"           # 最大 8 核 CPU
-              memory: "32Gi"     # 最大 32GB 内存
-            requests:
-              cpu: "4"           # 保证 4 核 CPU
-              memory: "16Gi"     # 保证 16GB 内存
-
-          ports:
-            - containerPort: 5080
-              name: http
-              protocol: TCP
-            - containerPort: 5081
-              name: grpc
-              protocol: TCP
-
           env:
-            # === 管理员认证 ===
             - name: ZO_ROOT_USER_EMAIL
-              value: "root@example.com"
+              valueFrom:
+                secretKeyRef:
+                  name: openobserve-auth
+                  key: email
             - name: ZO_ROOT_USER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: openobserve-admin
+                  name: openobserve-auth
                   key: password
-
-            # === 单节点模式 ===
             - name: ZO_LOCAL_MODE
               value: "true"
-
-            # === 数据目录 ===
+            - name: ZO_HTTP_ADDR
+              value: "0.0.0.0"
             - name: ZO_DATA_DIR
-              value: "/data"
-
-            # === 内存配置 ===
-            - name: ZO_MAX_FILE_SIZE_IN_MEMORY
-              value: "256"       # Memtable 256MB
-            - name: ZO_MAX_FILE_SIZE_ON_DISK
-              value: "128"       # WAL 128MB
-
-            # === 刷盘与上传间隔 ===
-            - name: ZO_MEM_PERSIST_INTERVAL
-              value: "5"         # 5秒刷盘
-            - name: ZO_FILE_PUSH_INTERVAL
-              value: "10"        # 10秒检查上传
-
-            # === 合并配置 ===
-            - name: ZO_COMPACT_MAX_FILE_SIZE
-              value: "2048"      # 合并后最大2GB
-
-            # === 数据保留策略（关键：30天自动清理） ===
+              value: /data
             - name: ZO_LOGS_RETENTION
               value: "30d"
             - name: ZO_METRICS_RETENTION
               value: "30d"
             - name: ZO_TRACES_RETENTION
               value: "30d"
-
-            # === 对象存储（本地 MinIO） ===
-            - name: ZO_S3_PROVIDER
-              value: "minio"
-            - name: ZO_S3_SERVER_URL
-              value: "http://minio.openobserve.svc.cluster.local:9000"
-            - name: ZO_S3_BUCKET_NAME
-              value: "openobserve"
-            - name: ZO_S3_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: minio-credentials
-                  key: access-key
-            - name: ZO_S3_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: minio-credentials
-                  key: secret-key
-            - name: ZO_S3_REGION
-              value: "us-east-1"
-
-            # === 索引配置 ===
-            - name: ZO_ENABLE_INVERTED_INDEX
-              value: "true"
-
-            # === 日志级别 ===
-            - name: RUST_LOG
-              value: "info"
-
-          volumeMounts:
-            - name: data
-              mountPath: /data
-
-          # 健康检查
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: "8"
+              memory: "16Gi"
+            requests:
+              cpu: "1"
+              memory: "2Gi"
           livenessProbe:
             httpGet:
               path: /healthz
               port: 5080
             initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 20
             failureThreshold: 3
-
           readinessProbe:
             httpGet:
               path: /healthz
               port: 5080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 5
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 20
             failureThreshold: 3
-
           # 优雅关闭
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sh", "-c", "sleep 30"]
-
-  # === PVC 模板（1000GB/30天 适配 300GB） ===
+                command: [ "/bin/sh", "-c", "sleep 10" ]
+          ports:
+            - containerPort: 5080
+              name: http
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  # 本地部署不需要下面的配置，使用deployment-local.yaml
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 300Gi      # 300GB SSD 存储
-      storageClassName: fast-ssd  # 高性能存储类
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: gp3  # 使用 aws gp3，注释会自动选择
+        resources:
+          requests:
+            storage: 500Gi # 可动态调整
 ```
 
 #### 部署步骤
