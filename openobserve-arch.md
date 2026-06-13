@@ -872,6 +872,8 @@ spec:
 - 对于密钥信息，建议放在k8s secret管理，具体参考官方k8s手册：https://kubernetes.io/zh-cn/docs/tasks/configmap-secret/managing-secret-using-kubectl/
 - 如果需要使用企业版，需要经过openobserve官方授权许可证才可以使用。
 - resources这里可以使用storageClass，例如：aws的gp3 sc类型的pvc。
+- 云版本每天50GB免费，镜像为: public.ecr.aws/zinclabs/openobserve:latest
+- 社区版的镜像为: o2cr.ai/openobserve/openobserve:v0.90.3
 #### 生产适配版（1000GB/30天场景，可根据实际情况调整）
 
 以下配置在官方基础上增加了 **数据保留策略**、**资源限制**、**健康检查**、**对象存储** 等生产必需配置：
