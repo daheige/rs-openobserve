@@ -1,0 +1,22 @@
+# 01-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: data-openobserve-0
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hostpath  # 必须和 PVC 的 storageClassName 一致
+  hostPath:
+    path: /opt/openobserve/data
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - docker-desktop
