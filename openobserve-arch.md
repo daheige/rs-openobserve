@@ -1003,7 +1003,6 @@ spec:
     - name: http
       port: 5080
       targetPort: 5080
-
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -1044,18 +1043,13 @@ spec:
                 secretKeyRef:
                   name: openobserve-auth
                   key: password
+            - name: ZO_DATA_DIR
+              value: /data
+            # 单节点必须配置为true
             - name: ZO_LOCAL_MODE
               value: "true"
             - name: ZO_HTTP_ADDR
               value: "0.0.0.0"
-            - name: ZO_DATA_DIR
-              value: /data
-            - name: ZO_LOGS_RETENTION
-              value: "30d"
-            - name: ZO_METRICS_RETENTION
-              value: "30d"
-            - name: ZO_TRACES_RETENTION
-              value: "30d"
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -1091,17 +1085,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-  # 本地部署不需要下面的配置，使用deployment-local.yaml
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: gp3  # 使用 aws gp3，注释会自动选择
+        #        storageClassName: gp3   # 对于云来说建议配置实际的sc，例如:aws对应的gp3模版
         resources:
           requests:
-            storage: 500Gi # 可动态调整
+            storage: 1000Gi # 测试环境建议200gb，线上可以设置为1000Gi
 ```
 
 #### 部署步骤
@@ -1110,8 +1103,18 @@ spec:
 # 1. 创建命名空间
 kubectl create namespace openobserve
 
+# 创建secret
+export ZO_ROOT_USER_EMAIL="root@example.com"
+export ZO_ROOT_USER_PASSWORD="Complexpass#123"
+
+# 这一步一般会提前创建好，或者使用nacos管理配置
+kubectl create secret generic openobserve-auth \
+    --namespace openobserve \
+    --from-literal=email=${ZO_ROOT_USER_EMAIL} \
+    --from-literal=password=${ZO_ROOT_USER_PASSWORD}
+
 # 2. 应用配置
-kubectl apply -f openobserve-statefulset.yaml
+kubectl apply -f k8s/deployment.yaml
 
 # 3. 查看 Pod 状态
 kubectl -n openobserve get pods -w
@@ -1128,20 +1131,20 @@ kubectl -n openobserve port-forward svc/openobserve 5080:5080
 #### 与官方配置的差异说明
 
 | 配置项 | 官方原始值 | 生产适配版（1000GB/30天） | 原因 |
-|--------|-----------|-------------------------|------|
-| `resources.limits.cpu` | 4096m (4核) | **8** (8核) | 1000GB/30天需要更高计算能力 |
-| `resources.limits.memory` | 2048Mi (2GB) | **32Gi** (32GB) | 缓存 + Memtable + 查询需要 |
-| `resources.requests.cpu` | 256m (0.25核) | **4** (4核) | 保证基础计算资源 |
-| `resources.requests.memory` | 50Mi | **16Gi** (16GB) | 保证基础内存 |
-| `storage` | 10Gi | **300Gi** | 30天 WAL + 本地缓冲 |
-| `ZO_LOGS_RETENTION` | 未设置 | **30d** | 自动清理超过30天数据 |
-| `ZO_S3_PROVIDER` | 未设置 | **minio** | 本地对象存储 |
-| `livenessProbe` | 无 | **有** | 生产健康检查 |
-| `readinessProbe` | 无 | **有** | 生产就绪检查 |
+|--------|-----------|-------------------|------|
+| `resources.limits.cpu` | 4096m (4核) | **8** (8核)        | 1000GB/30天需要更高计算能力 |
+| `resources.limits.memory` | 2048Mi (2GB) | **16Gi** (16GB)   | 缓存 + Memtable + 查询需要 |
+| `resources.requests.cpu` | 256m (0.25核) | **1** (1核)        | 保证基础计算资源 |
+| `resources.requests.memory` | 50Mi | **2Gi** (2GB)     | 保证基础内存 |
+| `storage` | 10Gi | **500Gi**         | 30天 WAL + 本地缓冲 |
+| `ZO_LOGS_RETENTION` | 未设置 | **30d**           | 自动清理超过30天数据 |
+| `ZO_S3_PROVIDER` | 未设置 | **minio**         | 本地对象存储 |
+| `livenessProbe` | 无 | **有**             | 生产健康检查 |
+| `readinessProbe` | 无 | **有**             | 生产就绪检查 |
 
 ---
 
-### Kubernetes Deployment 部署配置（可根据实际情况调整）
+### Kubernetes Deployment 部署配置参考（可根据实际情况调整）
 
 ```yaml
 apiVersion: apps/v1

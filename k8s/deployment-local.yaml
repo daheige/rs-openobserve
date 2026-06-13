@@ -67,10 +67,10 @@ spec:
           resources:
             limits:
               cpu: "4"
-              memory: 8Gi
+              memory: "8Gi"
             requests:
               cpu: "1"
-              memory: 2Gi
+              memory: "2Gi"
           livenessProbe:
             httpGet:
               path: /healthz
@@ -107,4 +107,4 @@ spec:
 #        storageClassName: hostpath   # Docker Desktop 可用，对于云来说建议配置实际的sc，例如:aws对应的gp3模版
         resources:
           requests:
-            storage: 10Gi
+            storage: 50Gi # 本地可以50gb

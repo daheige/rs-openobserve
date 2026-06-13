@@ -11,7 +11,6 @@ spec:
     - name: http
       port: 5080
       targetPort: 5080
-
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -54,6 +53,7 @@ spec:
                   key: password
             - name: ZO_DATA_DIR
               value: /data
+            # 单节点必须配置为true
             - name: ZO_LOCAL_MODE
               value: "true"
             - name: ZO_HTTP_ADDR
@@ -61,11 +61,11 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: "8"
+              memory: "16Gi"
             requests:
               cpu: "1"
-              memory: 2Gi
+              memory: "2Gi"
           livenessProbe:
             httpGet:
               path: /healthz
@@ -102,4 +102,4 @@ spec:
 #        storageClassName: gp3   # 对于云来说建议配置实际的sc，例如:aws对应的gp3模版
         resources:
           requests:
-            storage: 10Gi
+            storage: 500Gi # 测试环境建议200gb，线上可以设置为500Gi
